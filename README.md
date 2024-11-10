@@ -4,7 +4,7 @@
 
 ## SM2/SM4 Encrypt and Decrypt
 
-```
+```python
 from CryptUtils import SM2Encrypt, SM2Decrypt, SM4Encrypt, SM4Decrypt
 
 SM2Encrypt(data)
