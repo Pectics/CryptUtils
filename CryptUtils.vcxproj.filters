@@ -18,15 +18,10 @@
     <ClCompile Include="module.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="gzip.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="main.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
+    <None Include=".gitignore" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="config.h">

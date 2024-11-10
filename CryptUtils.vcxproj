@@ -76,12 +76,16 @@
     <IncludePath>F:\.cpp\CryptUtils\include;$(IncludePath)</IncludePath>
     <LibraryPath>F:\.cpp\CryptUtils\lib;$(LibraryPath)</LibraryPath>
     <AllProjectIncludesArePublic>false</AllProjectIncludesArePublic>
+    <OutDir>$(SolutionDir)build\$(Platform)_$(Configuration)\</OutDir>
+    <IntDir>.dist\$(Platform)_$(Configuration)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <TargetExt>.pyd</TargetExt>
     <IncludePath>F:\.cpp\CryptUtils\include;$(IncludePath)</IncludePath>
     <LibraryPath>F:\.cpp\CryptUtils\lib;$(LibraryPath)</LibraryPath>
     <AllProjectIncludesArePublic>false</AllProjectIncludesArePublic>
+    <OutDir>$(SolutionDir)build\$(Platform)_$(Configuration)\</OutDir>
+    <IntDir>.dist\$(Platform)_$(Configuration)\</IntDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -147,11 +151,10 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="gzip.cpp" />
-    <ClCompile Include="main.cpp" />
     <ClCompile Include="module.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <None Include=".gitignore" />
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
