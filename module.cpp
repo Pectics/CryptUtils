@@ -50,27 +50,29 @@ static PyObject* C_SM2Encrypt(PyObject*, PyObject* o) {
 
 	// parse text
 	std::string text = PyBytes_AsString(PyUnicode_AsUTF8String(o));
-	size_t len = text.size();
-	std::vector<uint8_t> plain(len);
-	std::copy(text.begin(), text.end(), plain.begin());
+	size_t plain_len = text.size();
+	uint8_t* plain = new uint8_t[plain_len];
+	std::copy(text.begin(), text.end(), plain);
 
 	// init pub_key
 	sm2::SM2PublicKey<sm3::SM3> pub_key(PUBLIC_KEY[0], PUBLIC_KEY[1]);
 
 	// error: buffer overflow
-	if (pub_key.ciphertext_len(plain.data(), len) > BUFFER_SIZE) {
+	if (pub_key.ciphertext_len(plain, plain_len) > BUFFER_SIZE) {
 		PyErr_SetString(PyExc_BufferError, "Buffer overflow");
 		return _Py_NULL;
 	}
 
 	// encrypt
-	std::vector<uint8_t> cipher(BUFFER_SIZE);
+	uint8_t* cipher = new uint8_t[BUFFER_SIZE];
 	size_t cipher_len;
 	rng::StdRng rng;
-	pub_key.encrypt(cipher.data(), &cipher_len, plain.data(), len, rng);
-	std::string ret = Base64::EncodeAsString(cipher.data(), cipher_len);
+	pub_key.encrypt(cipher, &cipher_len, plain, plain_len, rng);
+	std::string ret = Base64::EncodeAsString(cipher, cipher_len);
 
 	// return
+	delete[] plain;
+	delete[] cipher;
 	return PyUnicode_FromStringAndSize(ret.c_str(), ret.size());
 }
 
@@ -84,30 +86,31 @@ static PyObject* C_SM2Decrypt(PyObject*, PyObject* o) {
 
 	// Parse cipher text
 	std::string text = PyBytes_AsString(PyUnicode_AsUTF8String(o));
-	size_t len = (text.size() / 4) * 3;
-	if (text.size() >= 1 && text[text.size() - 1] == '=') len--;
-	if (text.size() >= 2 && text[text.size() - 2] == '=') len--;
+	size_t cipher_len = (text.size() / 4) * 3;
+	if (text.size() >= 1 && text[text.size() - 1] == '=') cipher_len--;
+	if (text.size() >= 2 && text[text.size() - 2] == '=') cipher_len--;
 
-	std::vector<uint8_t> cipher(len);
-	Base64::Decode(reinterpret_cast<const uint8_t*>(text.c_str()), text.size(), cipher.data());
+	uint8_t* cipher = new uint8_t[cipher_len];
+	Base64::Decode(reinterpret_cast<const uint8_t*>(text.c_str()), text.size(), cipher);
 
 	// Initialize private key
 	sm2::SM2PrivateKey<sm3::SM3> pri_key(PRIVATE_KEY);
 
 	// Check buffer size
-	size_t expected_len = pri_key.plaintext_len(cipher.data(), len);
-	if (expected_len > BUFFER_SIZE) {
+	if (pri_key.plaintext_len(cipher, cipher_len) > BUFFER_SIZE) {
 		PyErr_SetString(PyExc_BufferError, "Buffer overflow");
 		return _Py_NULL;
 	}
 
 	// Decrypt
-	std::vector<uint8_t> plain(BUFFER_SIZE);
-	size_t text_len;
-	pri_key.decrypt(plain.data(), &text_len, cipher.data(), len);
+	uint8_t* plain = new uint8_t[BUFFER_SIZE];
+	size_t plain_len;
+	pri_key.decrypt(plain, &plain_len, cipher, cipher_len);
 
 	// Convert and return
-	std::string ret(reinterpret_cast<char*>(plain.data()), text_len);
+	std::string ret(plain, plain + plain_len);
+	delete[] plain;
+	delete[] cipher;
 	return PyUnicode_FromStringAndSize(ret.c_str(), ret.size());
 }
 
@@ -143,19 +146,21 @@ static PyObject* C_SM4Encrypt(PyObject*, PyObject* o) {
 	// Parse text and apply PKCS7 padding
 	size_t block_size = sm4::SM4::BLOCK_SIZE;
 	size_t padded_len = block_size * (len / block_size + 1);
-	std::vector<uint8_t> plain(padded_len, 0);
-	std::copy(text, text + len, plain.begin());
-	std::fill(plain.begin() + len, plain.end(), padded_len - len);
+	uint8_t* plain = new uint8_t[padded_len];
+	std::copy(text, text + len, plain);
+	std::fill(plain + len, plain + padded_len, padded_len - len);
 
 	// Encrypt
-	std::vector<uint8_t> cipher(BUFFER_SIZE);
+	uint8_t* cipher = new uint8_t[BUFFER_SIZE];
 	size_t cipher_len;
-	enc.do_final(cipher.data(), &cipher_len, plain.data(), padded_len);
+	enc.do_final(cipher, &cipher_len, plain, padded_len);
 
 	// Encode to Base64
-	std::string ret = Base64::EncodeAsString(cipher.data(), cipher_len);
+	std::string ret = Base64::EncodeAsString(cipher, cipher_len);
 
 	// Return
+	delete[] plain;
+	delete[] cipher;
 	return PyUnicode_FromStringAndSize(ret.c_str(), ret.size());
 }
 
@@ -188,23 +193,28 @@ static PyObject* C_SM4Decrypt(PyObject*, PyObject* o) {
 	size_t cipher_len = len / 4 * 3;
 	if (len >= 1 && text[len - 1] == '=') cipher_len--;
 	if (len >= 2 && text[len - 2] == '=') cipher_len--;
-	cipher_len = sm4::SM4::BLOCK_SIZE * (cipher_len / sm4::SM4::BLOCK_SIZE + 1);
+	cipher_len = cipher_len % sm4::SM4::BLOCK_SIZE ? sm4::SM4::BLOCK_SIZE * (cipher_len / sm4::SM4::BLOCK_SIZE) : cipher_len;
 
-	std::vector<uint8_t> cipher(cipher_len);
-	Base64::Decode(text, len, cipher.data());
+	uint8_t* cipher = new uint8_t[cipher_len];
+	Base64::Decode(text, len, cipher);
 
 	// decrypt
-	std::vector<uint8_t> plain(BUFFER_SIZE);
+	uint8_t* plain = new uint8_t[BUFFER_SIZE];
 	size_t plain_len;
-	dec.do_final(plain.data(), &plain_len, cipher.data(), cipher_len);
+	dec.do_final(plain, &plain_len, cipher, cipher_len);
 
 	// gzip decompress
 	if (gzip)
-		GZip::Decompress(plain.data(), plain_len, plain.data(), plain_len);
+		GZip::Decompress(plain, plain_len, plain, plain_len);
 
-	std::string ret(reinterpret_cast<char*>(plain.data()), plain_len);
+	// remove padding
+
+	size_t padding = plain[plain_len - 1];
+	std::string ret(plain, plain + plain_len - padding);
 
 	// return
+	delete[] plain;
+	delete[] cipher;
 	return PyUnicode_FromStringAndSize(ret.c_str(), ret.size());
 }
 
