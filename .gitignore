@@ -1,0 +1,7 @@
+.vs
+.git
+
+.dist
+build
+
+packages
